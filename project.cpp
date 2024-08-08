@@ -21,3 +21,10 @@ typedef struct BST
 {
     BSTNode* root;     
 } BST;
+
+unsigned int hashFunction(char* key);
+BSTNode* createBSTNode(char* destination, int weight, float value);
+BSTNode* insertIntoBST(BSTNode* root, char* destination, int weight, float value);
+
+void insertIntoHashTable(HashTable* hashTable[], char* destination, int weight, float value);
+void loadData(HashTable* hashTable[], const char* filename);
