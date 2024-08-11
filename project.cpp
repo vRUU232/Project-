@@ -59,3 +59,57 @@ struct BST
         }
         return node;
     }
+
+    void inorderRec(BSTNode* node, Parcel**& parcels, int& count, int& capacity) {
+        if (node) {
+            inorderRec(node->left, parcels, count, capacity);
+            if (count >= capacity) {
+                capacity *= 2;
+                parcels = (Parcel**)realloc(parcels, capacity * sizeof(Parcel*));
+            }
+            parcels[count++] = node->parcel;
+            inorderRec(node->right, parcels, count, capacity);
+        }
+    }
+
+    ~BST() {
+        deleteTree(root);
+    }
+
+    void deleteTree(BSTNode* node) {
+        if (node) {
+            deleteTree(node->left);
+            deleteTree(node->right);
+            delete node->parcel;
+            delete node;
+        }
+    }
+};
+
+
+struct HashTable 
+{
+    BST* table[HASH_TABLE_SIZE];
+
+    HashTable() 
+{
+        for (int i = 0; i < HASH_TABLE_SIZE; ++i) 
+        {
+            table[i] = new BST();
+        }
+    }
+
+    unsigned long hashFunction(const string& str)
+{
+        unsigned long hash = 5381;
+        for (char c : str) {
+            hash = ((hash << 5) + hash) + c;  
+        }
+        return hash % HASH_TABLE_SIZE;
+    }
+
+    void insert(Parcel* parcel)
+{
+        unsigned long hashValue = hashFunction(parcel->country);
+        table[hashValue]->insert(parcel);
+    }
