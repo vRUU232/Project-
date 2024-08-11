@@ -1,37 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
+#include <fstream>
 
+#define HASH_TABLE_SIZE 127
 
-typedef struct Parcel
+using namespace std;
+
+struct Parcel 
 {
-    char* destination;
-    int weight;
-    float value;
-} Parcel;
+    string country;     
+    int weight;        
+    float valuation;    
+    Parcel(const string& c, int w, float v) : country(c), weight(w), valuation(v) {}
+};
 
-typedef struct BSTNode
+
+struct BSTNode 
 {
-    Parcel* parcel;    
-    struct BSTNode* left;    
-    struct BSTNode* right;    
-} BSTNode;
+    Parcel* parcel;     
+    BSTNode* left;     
+    BSTNode* right;    
 
-typedef struct BST 
+    BSTNode(Parcel* p) : parcel(p), left(nullptr), right(nullptr) {}
+};
+
+
+struct BST
 {
     BSTNode* root;     
-} BST;
 
-typedef struct
+    BST() : root(nullptr) {}
+
+    void insert(Parcel* parcel) 
 {
-    BST* root;
-} HashTable;
+        root = insertRec(root, parcel);
+    }
 
-unsigned int hashFunction(char* key);
-BSTNode* createBSTNode(char* destination, int weight, float value);
-BSTNode* insertIntoBST(BSTNode* root, char* destination, int weight, float value);
+    void inorder(Parcel**& parcels, int& count, int& capacity)
+{
+        inorderRec(root, parcels, count, capacity);
+    }
 
-void insertIntoHashTable(HashTable* hashTable[], char* destination, int weight, float value);
-void loadData(HashTable* hashTable[], const char* filename);
-void displayMenu();
-void displayAllParcels(BSTNode* root);
+    BSTNode* insertRec(BSTNode* node, Parcel* parcel) 
+{
+        if (!node)
+        {
+            return new BSTNode(parcel);
+        }
+        if (parcel->weight < node->parcel->weight)
+        {
+            node->left = insertRec(node->left, parcel);
+        }
+        else
+        {
+            node->right = insertRec(node->right, parcel);
+        }
+        return node;
+    }
