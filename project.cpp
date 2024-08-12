@@ -126,3 +126,12 @@ struct HashTable
         }
     }
 };
+
+void displayParcels(HashTable& hashTable, const char* country);
+void displayWeightCondition(HashTable& hashTable, const char* country, int weight, bool higher);
+void totalLoadAndValuation(HashTable& hashTable, const char* country);
+void cheapestAndMostExpensive(HashTable& hashTable, const char* country);
+void lightestAndHeaviest(HashTable& hashTable, const char* country);
+void readFile(HashTable& hashTable, const char* filename);
+void getUserInput(const char* prompt, char* buffer, int size);
+
