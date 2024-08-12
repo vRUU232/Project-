@@ -113,3 +113,16 @@ struct HashTable
         unsigned long hashValue = hashFunction(parcel->country);
         table[hashValue]->insert(parcel);
     }
+    BST* getTree(const string& country) 
+{
+        unsigned long hashValue = hashFunction(country);
+        return table[hashValue];
+    }
+
+    ~HashTable() {
+        for (int i = 0; i < HASH_TABLE_SIZE; ++i)
+            {
+            delete table[i];
+        }
+    }
+};
