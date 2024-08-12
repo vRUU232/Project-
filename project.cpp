@@ -270,3 +270,45 @@ void showParcelsList(HashTable& hashTable, const char* country) {
         printf("No parcels found for country %s\n", country);
     }
 }
+/*
+* FUNCTION    : showParcelWeight
+* DESCRIPTION : This function displays parcels for a given country based on weight condition.
+* PARAMETERS  : HashTable& hashTable - The hash table.
+*               const char* country - The country name.
+*               int weight - The weight condition.
+*               bool higher - If true, display parcels with weight higher than the given weight; otherwise, display parcels with weight lower than the given weight.
+*/
+void showParcelWeight(HashTable& hashTable, const char* country, int weight, bool higher) {
+    // Retrieve the BST associated with the given country
+    BST* tree = hashTable.getTree(country);
+
+    if (tree) {
+        int count = 0, capacity = 10;
+        Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        tree->inorder(parcels, count, capacity); // Retrieve all parcels in the BST
+
+        printf("Parcels for country %s with weight %s than %d:\n", country, higher ? "higher" : "lower", weight);
+
+        bool found = false; // Flag to check if any parcel meets the criteria
+
+        for (int i = 0; i < count; i++) {
+            // Ensure the parcel's country matches the specified country
+            if (strcmp(parcels[i]->country, country) == 0) {
+                // Check if the parcel's weight meets the condition
+                if ((higher && parcels[i]->weight > weight) || (!higher && parcels[i]->weight < weight)) {
+                    printf("Destination: %s, Weight: %d, Valuation: %.2f\n", parcels[i]->country, parcels[i]->weight, parcels[i]->valuation);
+                    found = true; // At least one parcel meets the criteria
+                }
+            }
+        }
+
+        if (!found) {
+            printf("No parcels found for country %s with the specified weight condition.\n", country);
+        }
+
+        free(parcels);
+    }
+    else {
+        printf("No parcels found for country %s.\n", country);
+    }
+} 
