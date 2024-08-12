@@ -133,5 +133,18 @@ void totalLoadAndValuation(HashTable& hashTable, const char* country);
 void cheapestAndMostExpensive(HashTable& hashTable, const char* country);
 void lightestAndHeaviest(HashTable& hashTable, const char* country);
 void readFile(HashTable& hashTable, const char* filename);
-void getUserInput(const char* prompt, char* buffer, int size);
+void getUserInput(const char* prompt, char* buffer, int size); 
+
+int main() {
+   
+    HashTable hashTable;
+
+   
+    readFile(hashTable, "couriers.txt");
+
+    int choice;
+    char country[100];
+    char input[100];
+    int weight;
+    int condition;
 
