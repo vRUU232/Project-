@@ -5,6 +5,7 @@
 #include <fstream>
 
 #define HASH_TABLE_SIZE 127
+#define MAX_COUNTRY_NAME_LENGTH 20 
 
 using namespace std;
 
@@ -15,11 +16,10 @@ struct Parcel {
     float valuation;   // Valuation of the parcel
 
     Parcel(const char* c, int w, float v) : weight(w), valuation(v) {
-        country = (char*)malloc(strlen(c) + 1);  // Allocate memory for the country name
-        if (country) {
-            strcpy_s(country, strlen(c) + 1, c);  // Copy the country name safely
-        }
+        country = (char*)malloc(MAX_COUNTRY_NAME_LENGTH + 1);  // Allocate memory for MAX_COUNTRY_NAME_LENGTH 
+            strncpy_s(country, MAX_COUNTRY_NAME_LENGTH + 1, c, _TRUNCATE);  
     }
+
 
     ~Parcel() {
         free(country);  // Free the allocated memory
@@ -132,7 +132,6 @@ void cheapestAndMostExpensive(HashTable& hashTable, const char* country);
 void lightestAndHeaviest(HashTable& hashTable, const char* country);
 void readFile(HashTable& hashTable, const char* filename);
 void getUserInput(const char* prompt, char* buffer, int size);
-
 int main() {
     // Create a hash table
     HashTable hashTable;
@@ -141,8 +140,8 @@ int main() {
     readFile(hashTable, "couriers.txt");
 
     int choice;
-    char country[100];
     char input[100];
+    char country[100];
     int weight;
     bool condition;
 
@@ -157,6 +156,75 @@ int main() {
         printf("6. Exit the application\n");
         printf("Enter your choice: ");
 
-        // Get user choice
+        // Get user input
         fgets(input, sizeof(input), stdin);
-        sscanf_s(input, "%d", &choice);
+
+        // **Input Validation**: Check if the input is a valid number
+        if (sscanf_s(input, "%d", &choice) != 1) {
+            printf("Error: Invalid input. Please enter a number between 1 and 6.\n");
+            continue;  // Restart the loop for another input
+        }
+
+        // Handle valid menu choices
+        switch (choice) {
+        case 1:
+            getUserInput("Enter country name: ", country, sizeof(country));
+            displayParcels(hashTable, country);
+            break;
+        case 2: {
+            // Prompt for the country name
+            getUserInput("Enter country name: ", country, sizeof(country));
+
+            // Prompt for the weight to compare
+            printf("Enter the weight to compare: ");
+            fgets(input, sizeof(input), stdin);
+            sscanf_s(input, "%d", &weight);
+
+            // Ask the user if they want parcels with higher or lower weights
+            printf("Enter 'H' for weight higher or 'L' for weight lower: ");
+            fgets(input, sizeof(input), stdin);
+
+            // Convert the first character of the input to uppercase
+            char conditionChar = toupper(input[0]);
+
+            // Determine the condition based on user input
+            if (conditionChar == 'H') {
+                condition = true;  // Higher
+            }
+            else if (conditionChar == 'L') {
+                condition = false; // Lower
+            }
+            else {
+                printf("Invalid input. Please enter 'H' for higher or 'L' for lower.\n");
+                break;
+            }
+
+            // Call the updated displayWeightCondition function
+            displayWeightCondition(hashTable, country, weight, condition);
+
+            break;
+        }
+        case 3:
+            getUserInput("Enter country name: ", country, sizeof(country));
+            totalLoadAndValuation(hashTable, country);
+            break;
+        case 4:
+            getUserInput("Enter country name: ", country, sizeof(country));
+            cheapestAndMostExpensive(hashTable, country);
+            break;
+        case 5:
+            getUserInput("Enter country name: ", country, sizeof(country));
+            lightestAndHeaviest(hashTable, country);
+            break;
+        case 6:
+            printf("Exiting the application.\n");
+            break;
+        default:
+            // **Invalid Menu Choice Handling**: Handle choices outside the range of 1 to 6
+            printf("Error: Invalid choice. Please select a number between 1 and 6.\n");
+            break;
+        }
+    } while (choice != 6);
+
+    return 0;
+}
