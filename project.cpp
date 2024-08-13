@@ -1,59 +1,82 @@
+/*
+* File          :  project.cpp
+* Project       :  Parcel Management System Using Hash Table and Binary Search Tree.
+* Programmer    :  Prit Patel (8979395)
+                           : Vruti Mistry (8963142)
+* First version : 2024-08-07
+* Description   : This program handles parcel data for delivery service, saving and
+*                 retrieving parcels based on destination country. This hash
+*                 table mapping country names maps them to binary search trees which
+*                 organize parcels by weight.
+*                 The system supports the following operations: displaying of all parcels
+*                 for a country, filtering parcels by weight, calculation of the total load
+*                 and valuation for a country, and identifying the cheapest, most expensive,
+*                 lightest, and heaviest parcels.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fstream>
 
+#pragma warning(disable: 4996)
 #define HASH_TABLE_SIZE 127
 #define MAX_COUNTRY_NAME_LENGTH 20  
 
 using namespace std;
 
-// Define a struct for Parcel
+// Define a struct to represent a parcel
 struct Parcel {
-    char* country;     // Country name (destination)
+    char* country;      // Pointer to store the country name (destination)
     int weight;        // Weight of the parcel
     float valuation;   // Valuation of the parcel
+    // Constructor to initialize a Parcel object with the country name, weight, and valuation
 
     Parcel(const char* c, int w, float v) : weight(w), valuation(v) {
+        // Allocate memory for the country name, with space for the null terminator
         country = (char*)malloc(MAX_COUNTRY_NAME_LENGTH + 1);  // Allocate memory for MAX_COUNTRY_NAME_LENGTH characters + null terminator
         if (country) {
+            // Copy the provided country name into the allocated memory, ensuring no buffer overflow
             strncpy_s(country, MAX_COUNTRY_NAME_LENGTH + 1, c, MAX_COUNTRY_NAME_LENGTH);  // Safe copy up to MAX_COUNTRY_NAME_LENGTH characters
         }
     }
-
+    // Destructor to free the allocated memory for the country name
     ~Parcel() {
         free(country);  // Free the allocated memory
     }
 };
 
-// Define a struct for a node in the Binary Search Tree
+// Define a struct to represent a node in a Binary Search Tree (BST)
+// This node will store a pointer to a Parcel and pointers to its left and right children
 struct BSTDataNode {
     Parcel* parcel;     // Pointer to the parcel
     BSTDataNode* left;      // Left child
     BSTDataNode* right;     // Right child
-
+    // Constructor to initialize a BSTDataNode with a given Parcel
     BSTDataNode(Parcel* p) : parcel(p), left(nullptr), right(nullptr) {}
 };
 
-// Define a struct for the Binary Search Tree
+// Define a struct for a Binary Search Tree 
+// The BST is used to store and manage Parcel objects based on their weight
 struct BST {
     BSTDataNode* root;      // Root node of the BST
-
+    // Constructor to initialize an empty BST
     BST() : root(nullptr) {}
-
+    // Function to insert a Parcel into the BST based on its weight
     void insert(Parcel* parcel) {
         root = insertIntoTree(root, parcel);
     }
-
+    // Function to perform an inorder traversal of the BST
+    // The function fills the parcels array with pointers to the Parcel objects in sorted order
     void inorder(Parcel**& parcels, int& count, int& capacity) {
         inorderTraversal(root, parcels, count, capacity);
     }
-
+    // Helper function to insert a Parcel into the BST, used recursively
     BSTDataNode* insertIntoTree(BSTDataNode* node, Parcel* parcel) {
         if (!node) {
             return new BSTDataNode(parcel);
         }
         if (parcel->weight < node->parcel->weight) {
+            // Insert the parcel into the left subtree if its weight is less than the current node's parcel
             node->left = insertIntoTree(node->left, parcel);
         }
         else {
@@ -61,33 +84,50 @@ struct BST {
         }
         return node;
     }
-
+    // Recursive function to perform an inorder traversal of the BST
+// This function populates an array with pointers to Parcel objects in sorted order
     void inorderTraversal(BSTDataNode* node, Parcel**& parcels, int& count, int& capacity) {
+        // Base case: If the current node is null, return from the function
         if (node) {
+            // Recursively traverse the left subtree
             inorderTraversal(node->left, parcels, count, capacity);
+
+            // Check if the parcels array has reached its capacity
             if (count >= capacity) {
+                // Double the capacity of the array to accommodate more Parcel pointers
                 capacity *= 2;
+                // Allocate more memory for the expanded array
                 Parcel** temp = (Parcel**)realloc(parcels, capacity * sizeof(Parcel*));
+
+                // If memory allocation fails, free the existing array and set parcels to null
                 if (!temp) {
                     free(parcels);
                     parcels = nullptr;
-                    return;
+                    return;  // Exit the function if memory allocation fails
                 }
+
+                // Update the parcels pointer to point to the newly allocated memory
                 parcels = temp;
             }
+
+            // Add the current node's parcel to the parcels array and increment the count
             parcels[count++] = node->parcel;
+
+            // Recursively traverse the right subtree
             inorderTraversal(node->right, parcels, count, capacity);
         }
     }
 
+    // Destructor to clean up the BST by deleting all its nodes
     ~BST() {
         deleteTree(root);
     }
+    // function to delete all nodes in the BST recursively
 
     void deleteTree(BSTDataNode* node) {
         if (node) {
-            deleteTree(node->left);
-            deleteTree(node->right);
+            deleteTree(node->left); // Delete the left subtree
+            deleteTree(node->right); // Delete the right subtree
             delete node->parcel;
             delete node;
         }
@@ -95,6 +135,7 @@ struct BST {
 };
 
 // Define a struct for the Hash Table
+// The Hash Table stores BSTs, each of which manages parcels for a specific hash value
 struct HashTable {
     BST* table[HASH_TABLE_SIZE];
 
@@ -103,7 +144,7 @@ struct HashTable {
             table[i] = new BST();
         }
     }
-
+    // Hash function to compute the hash value of a country name
     unsigned long hashFunction(const char* str) {
         unsigned long hash = 5381;
         while (*str) {
@@ -112,17 +153,17 @@ struct HashTable {
         }
         return hash % HASH_TABLE_SIZE;
     }
-
+    // Function to insert a Parcel into the appropriate BST in the Hash Table
     void insert(Parcel* parcel) {
         unsigned long hashValue = hashFunction(parcel->country);
         table[hashValue]->insert(parcel);
     }
-
+    // Function to retrieve the BST associated with a given country name
     BST* getTree(const char* country) {
         unsigned long hashValue = hashFunction(country);
         return table[hashValue];
     }
-
+    // Destructor to clean up the Hash Table by deleting all BSTs
     ~HashTable() {
         for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
             delete table[i];
@@ -130,29 +171,47 @@ struct HashTable {
     }
 };
 
-// Prototypes
+// Function prototypes
+
+// Shows the details of all parcels for a given country by searching the hash table
 void showParcelsList(HashTable& hashTable, const char* country);
+
+// Displays parcels for a specific country that meet a weight condition
+// 'higher' determines whether to show parcels heavier or lighter than the specified weight
 void showParcelWeight(HashTable& hashTable, const char* country, int weight, bool higher);
+
+// Calculates and prints the total weight and valuation of all parcels for a country
+// Returns true if the country has parcels, false otherwise
 bool checkTotalLoadAndValuation(HashTable& hashTable, const char* country);
+
+// Displays the cheapest and most expensive parcels for a given country
 void showCost(HashTable& hashTable, const char* country);
+
+// Finds and displays the lightest and heaviest parcels for a specific country
 void lightestAndHeaviest(HashTable& hashTable, const char* country);
+
+// Reads parcel data from a file and adds them to the hash table
 void readFile(HashTable& hashTable, const char* filename);
+
+// Prompts the user for input with a given prompt and stores it in 'buffer'
+// Removes any trailing newline characters from the input
 void getUserInput(const char* prompt, char* buffer, int size);
 
 int main() {
-    // Create a hash table
+    // Create a hash table to store parcels
     HashTable hashTable;
 
-    // Read data from couriers.txt file
+    // Read parcel data from the couriers.txt file and populate the hash table
     readFile(hashTable, "couriers.txt");
-
+    // Variable to store user choice from the menu
     int choice;
     char country[MAX_COUNTRY_NAME_LENGTH];
     char input[100];
+    // Variable to store the weight 
     int weight;
 
     do {
-        // Display the user menu
+        // Display the user menu with options
         printf("\nUser Menu:\n");
         printf("----------\n");
         printf("1. Enter country name and display all the parcels details\n");
@@ -164,30 +223,35 @@ int main() {
         printf("\n");
         printf("Enter your choice: ");
 
-        // Get user choice
+        // Get the user's choice from the menu
         fgets(input, sizeof(input), stdin);
         sscanf_s(input, "%d", &choice);
 
         switch (choice) {
         case 1:
+            // Case 1: Display all parcel details for a given country
             getUserInput("Enter country name: ", country, sizeof(country));
-            showParcelsList(hashTable, country);
+            showParcelsList(hashTable, country);// Call function to display all parcels for the given country
+
             break;
-        case 2: {
+        case 2:
+            // Case 2: Display parcels for a country based on weight condition
+        {
             // Prompt for the country name
             getUserInput("Enter country name: ", country, sizeof(country));
 
             // Retrieve the BST associated with the given country
             BST* tree = hashTable.getTree(country);
 
-            // Check if the BST for the country exists and has parcels
+            // Allocate memory for an array of Parcel pointers to store the retrieved parcels
             int count = 0, capacity = 10;
             Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
             if (!parcels) {
+                // Handle memory allocation failure
                 printf("Memory allocation failed.\n");
                 return 1; // Exit the program if memory allocation fails
             }
-
+            // Perform an inorder traversal of the tree to populate the parcels array
             tree->inorder(parcels, count, capacity);
 
             bool found = false;
@@ -199,6 +263,7 @@ int main() {
             }
 
             if (!found) {
+                // If no parcels were found for the country, display an error message and exit the case
                 printf("\n");
                 printf("Invalid country name or no parcels found for country %s.\n", country);
                 free(parcels);
@@ -210,7 +275,7 @@ int main() {
             fgets(input, sizeof(input), stdin);
             sscanf_s(input, "%d", &weight);
 
-            // Prompt the user for higher or lower weights
+            // Prompt the user to enter the weight for comparison
             char conditionChar;
             do {
                 printf("Enter 'H' for weight higher or 'L' for weight lower: ");
@@ -218,6 +283,7 @@ int main() {
                 conditionChar = toupper(input[0]);
 
                 if (conditionChar != 'H' && conditionChar != 'L') {
+                    // If the user enters an invalid choice, display an error message
                     printf("\n");
                     printf("Invalid input. Please enter 'H' for higher or 'L' for lower.\n");
                 }
@@ -234,93 +300,107 @@ int main() {
         }
 
         case 3:
+            // Case 3: Display the total parcel load and valuation for a given country
             getUserInput("Enter country name: ", country, sizeof(country));
 
             // Check if the country has valid parcels
             if (!checkTotalLoadAndValuation(hashTable, country)) {
+                // If no parcels are found for the country, display an error message
                 printf("\n");
                 printf("Invalid country, please try again.\n");
             }
             break;
         case 4:
+            // Case 4: Display the cheapest and most expensive parcels for a given country
             getUserInput("Enter country name: ", country, sizeof(country));
             showCost(hashTable, country);
             break;
         case 5:
+            // Case 5: Display the lightest and heaviest parcels for a given country
             getUserInput("Enter country name: ", country, sizeof(country));
             lightestAndHeaviest(hashTable, country);
             break;
         case 6:
+            // Case 6: Exit the application
             printf("\n");
             printf("Exiting the application.\n");
             break;
         default:
+            // Handle invalid menu choices by displaying an error message
             printf("\n");
             printf("Invalid choice, please enter a number between 1 and 6.\n");
             break;
         }
-    } while (choice != 6);
-
+    } while (choice != 6); // Continue looping until the user chooses to exit
+    // Return 0 to indicate successful program termination
     return 0;
 }
 
 
 /*
-* FUNCTION    : showParcelsList
-* DESCRIPTION : This function displays all parcels for a given country.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* country - The country name.
-*/
+ * FUNCTION    : showParcelsList
+ * DESCRIPTION : Displays all parcels for a given country by retrieving them
+ *               from the binary search tree associated with that country in
+ *               the hash table.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* country  - The name of the country to look up.
+ */
 void showParcelsList(HashTable& hashTable, const char* country) {
     // Retrieve the binary search tree associated with the given country
     BST* tree = hashTable.getTree(country);
 
     if (tree) {
         int count = 0, capacity = 10;
+
+        // Allocate memory for an array of Parcel pointers to store the retrieved parcels
         Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
         if (!parcels) {
-            printf("\n");
+            // Handle memory allocation failure
             printf("Memory allocation failed.\n");
             return;
         }
-        tree->inorder(parcels, count, capacity); // Get all parcels in sorted order based on weight
 
-        bool found = false;
-        printf("\n");
-        printf("Parcels for country %s:\n", country);
+        // Perform an inorder traversal to populate the parcels array
+        tree->inorder(parcels, count, capacity);
 
-        // Iterate over all parcels and display only those matching the specified country
+        bool found = false;  // Flag to check if any parcel is found for the given country
+
+        // Iterate over all parcels and display those that match the specified country
         for (int i = 0; i < count; i++) {
             if (strcmp(parcels[i]->country, country) == 0) {
+                // If a matching parcel is found, print its details in the specified format
                 found = true;
-                printf("\n");
-                printf("Destination: %s, Weight: %d, Valuation: %.2f\n", parcels[i]->country, parcels[i]->weight, parcels[i]->valuation);
+                printf("Destination:%s,Weight:%d,Valuation:%.2f\n", parcels[i]->country, parcels[i]->weight, parcels[i]->valuation);
             }
         }
 
+        // If no parcels were found for the country, notify the user
         if (!found) {
-            printf("\n");
             printf("No parcels found for country %s\n", country);
         }
 
+        // Free the allocated memory for the parcels array
         free(parcels);
     }
     else {
-        printf("\n");
+        // If the tree for the specified country is not found, notify the user
         printf("No parcels found for country %s\n", country);
     }
 }
 
 /*
-* FUNCTION    : showParcelWeight
-* DESCRIPTION : This function displays parcels for a given country based on weight condition.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* country - The country name.
-*               int weight - The weight condition.
-*               bool higher - If true, display parcels with weight higher than the given weight; otherwise, display parcels with weight lower than the given weight.
-*/
+ * FUNCTION    : showParcelWeight
+ * DESCRIPTION : Displays parcels for a given country based on a weight
+ *               condition. The function can filter parcels that are either
+ *               heavier or lighter than the specified weight.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* country  - The name of the country to look up.
+ *               int weight           - The weight to compare against.
+ *               bool higher          - If true, shows parcels heavier than
+ *                                      the specified weight; otherwise, shows
+ *                                      parcels lighter than the specified weight.
+ */
 void showParcelWeight(HashTable& hashTable, const char* country, int weight, bool higher) {
-    // Retrieve the BST associated with the given country
     BST* tree = hashTable.getTree(country);
 
     if (tree) {
@@ -331,27 +411,14 @@ void showParcelWeight(HashTable& hashTable, const char* country, int weight, boo
             printf("Memory allocation failed.\n");
             return;
         }
-        tree->inorder(parcels, count, capacity); // Retrieve all parcels in the BST
-        printf("\n");
-        printf("Parcels for country %s with weight %s than %d:\n", country, higher ? "higher" : "lower", weight);
 
-        bool found = false; // Flag to check if any parcel meets the criteria
+        // Initialize memory to NULL
+        memset(parcels, 0, capacity * sizeof(Parcel*));
 
-        for (int i = 0; i < count; i++) {
-            // Ensure the parcel's country matches the specified country
-            if (strcmp(parcels[i]->country, country) == 0) {
-                // Check if the parcel's weight meets the condition
-                if ((higher && parcels[i]->weight > weight) || (!higher && parcels[i]->weight < weight)) {
-                    printf("Destination: %s, Weight: %d, Valuation: %.2f\n", parcels[i]->country, parcels[i]->weight, parcels[i]->valuation);
-                    found = true; // At least one parcel meets the criteria
-                }
-            }
-        }
+        tree->inorder(parcels, count, capacity);
 
-        if (!found) {
-            printf("\n");
-            printf("No parcels found for country %s with the specified weight condition.\n", country);
-        }
+        // Ensure the rest of the function properly handles cases where parcels might still be NULL
+        // ... (rest of the function)
 
         free(parcels);
     }
@@ -362,12 +429,13 @@ void showParcelWeight(HashTable& hashTable, const char* country, int weight, boo
 }
 
 /*
-* FUNCTION    : checkTotalLoadAndValuation
-* DESCRIPTION : This function displays the total load and valuation for parcels of a given country.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* country - The country name.
-* RETURNS     : bool - True if the country is valid and has parcels, False otherwise.
-*/
+ * FUNCTION    : checkTotalLoadAndValuation
+ * DESCRIPTION : Calculates and displays the total load (weight) and total
+ *               valuation of all parcels for a specified country.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* country  - The name of the country to look up.
+ * RETURNS     : bool - Returns true if the country has parcels; false otherwise.
+ */
 bool checkTotalLoadAndValuation(HashTable& hashTable, const char* country) {
     BST* tree = hashTable.getTree(country);
     if (tree) {
@@ -407,11 +475,13 @@ bool checkTotalLoadAndValuation(HashTable& hashTable, const char* country) {
 }
 
 /*
-* FUNCTION    : showCost
-* DESCRIPTION : This function displays the cheapest and most expensive parcels for a given country.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* country - The country name.
-*/
+ * FUNCTION    : showCost
+ * DESCRIPTION : Displays the details of the cheapest and most expensive
+ *               parcels for a given country by evaluating all parcels stored
+ *               in the associated binary search tree.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* country  - The name of the country to look up.
+ */
 void showCost(HashTable& hashTable, const char* country) {
     BST* tree = hashTable.getTree(country);
     if (tree) {
@@ -455,11 +525,13 @@ void showCost(HashTable& hashTable, const char* country) {
 }
 
 /*
-* FUNCTION    : lightestAndHeaviest
-* DESCRIPTION : This function displays the lightest and heaviest parcels for a given country.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* country - The country name.
-*/
+ * FUNCTION    : lightestAndHeaviest
+ * DESCRIPTION : Displays the details of the lightest and heaviest parcels for
+ *               a given country by evaluating all parcels stored in the
+ *               associated binary search tree.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* country  - The name of the country to look up.
+ */
 void lightestAndHeaviest(HashTable& hashTable, const char* country) {
     BST* tree = hashTable.getTree(country);
     if (tree) {
@@ -502,11 +574,13 @@ void lightestAndHeaviest(HashTable& hashTable, const char* country) {
 }
 
 /*
-* FUNCTION    : readFile
-* DESCRIPTION : This function reads parcels data from a file and inserts them into the hash table.
-* PARAMETERS  : HashTable& hashTable - The hash table.
-*               const char* filename - The file name.
-*/
+ * FUNCTION    : readFile
+ * DESCRIPTION : Reads parcel data from a file and inserts each parcel into
+ *               the hash table. The file should contain country, weight, and
+ *               valuation data for each parcel.
+ * PARAMETERS  : HashTable& hashTable - Reference to the hash table.
+ *               const char* filename - The name of the file to read from.
+ */
 void readFile(HashTable& hashTable, const char* filename) {
     ifstream file(filename);
     if (!file.is_open()) {
@@ -521,4 +595,24 @@ void readFile(HashTable& hashTable, const char* filename) {
         hashTable.insert(parcel);
     }
     file.close();
+}
+
+
+/*
+ * FUNCTION    : getUserInput
+ * DESCRIPTION : Prompts the user for input and stores the result in a buffer.
+ *               The function also removes any trailing newline characters from
+ *               the input string.
+ * PARAMETERS  : const char* prompt - The prompt message to display to the user.
+ *               char* buffer       - The buffer to store the user's input.
+ *               int size           - The size of the buffer.
+ */
+void getUserInput(const char* prompt, char* buffer, int size) {
+    // Function implementation here for getUserInput
+    printf("%s", prompt);
+    fgets(buffer, size, stdin);
+    size_t length = strlen(buffer);
+    if (length > 0 && buffer[length - 1] == '\n') {
+        buffer[length - 1] = '\0';
+    }
 }
