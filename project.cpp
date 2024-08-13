@@ -395,3 +395,49 @@ void showCost(HashTable& hashTable, const char* country) {
     }
 }
 
+/*
+* FUNCTION    : lightestAndHeaviest
+* DESCRIPTION : This function displays the lightest and heaviest parcels for a given country.
+* PARAMETERS  : HashTable& hashTable - The hash table.
+*               const char* country - The country name.
+*/
+void lightestAndHeaviest(HashTable& hashTable, const char* country) {
+    BST* tree = hashTable.getTree(country);
+    if (tree) {
+        int count = 0, capacity = 10;
+        Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        if (!parcels) {
+            printf("Memory allocation failed.\n");
+            return;
+        }
+        tree->inorder(parcels, count, capacity);
+
+        if (count == 0) {
+            printf("\n");
+            printf("No parcels found for country %s\n", country);
+            free(parcels);
+            return;
+        }
+
+        Parcel* lightest = parcels[0];
+        Parcel* heaviest = parcels[0];
+        for (int i = 1; i < count; i++) {
+            if (parcels[i]->weight < lightest->weight) {
+                lightest = parcels[i];
+            }
+            if (parcels[i]->weight > heaviest->weight) {
+                heaviest = parcels[i];
+            }
+        }
+        printf("\n");
+        printf("Lightest parcel for country %s: Destination: %s, Weight: %d, Valuation: %.2f\n", country, lightest->country, lightest->weight, lightest->valuation);
+        printf("\n");
+        printf("Heaviest parcel for country %s: Destination: %s, Weight: %d, Valuation: %.2f\n", country, heaviest->country, heaviest->weight, heaviest->valuation);
+
+        free(parcels);
+    }
+    else {
+        printf("\n");
+        printf("No parcels found for country %s\n", country);
+    }
+}
