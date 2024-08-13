@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string>
 #include <fstream>
 
 #define HASH_TABLE_SIZE 127
@@ -68,7 +67,13 @@ struct BST {
             inorderTraversal(node->left, parcels, count, capacity);
             if (count >= capacity) {
                 capacity *= 2;
-                parcels = (Parcel**)realloc(parcels, capacity * sizeof(Parcel*));
+                Parcel** temp = (Parcel**)realloc(parcels, capacity * sizeof(Parcel*));
+                if (!temp) {
+                    free(parcels);
+                    parcels = nullptr;
+                    return;
+                }
+                parcels = temp;
             }
             parcels[count++] = node->parcel;
             inorderTraversal(node->right, parcels, count, capacity);
@@ -128,7 +133,7 @@ struct HashTable {
 // Prototypes
 void showParcelsList(HashTable& hashTable, const char* country);
 void showParcelWeight(HashTable& hashTable, const char* country, int weight, bool higher);
-void totalLoadAndValuation(HashTable& hashTable, const char* country);
+bool checkTotalLoadAndValuation(HashTable& hashTable, const char* country);
 void showCost(HashTable& hashTable, const char* country);
 void lightestAndHeaviest(HashTable& hashTable, const char* country);
 void readFile(HashTable& hashTable, const char* filename);
@@ -142,10 +147,9 @@ int main() {
     readFile(hashTable, "couriers.txt");
 
     int choice;
+    char country[MAX_COUNTRY_NAME_LENGTH];
     char input[100];
-    char country[100];
     int weight;
-    bool condition;
 
     do {
         // Display the user menu
@@ -154,23 +158,16 @@ int main() {
         printf("1. Enter country name and display all the parcels details\n");
         printf("2. Enter country and weight pair\n");
         printf("3. Display the total parcel load and valuation for the country\n");
-        printf("4. Enter the country name and display cheapest and most expensive parcel details\n");
+        printf("4. Enter the country name and display cheapest and most expensive parcel’s details\n");
         printf("5. Enter the country name and display lightest and heaviest parcel for the country\n");
         printf("6. Exit the application\n");
         printf("\n");
         printf("Enter your choice: ");
 
-        // Get user input
+        // Get user choice
         fgets(input, sizeof(input), stdin);
+        sscanf_s(input, "%d", &choice);
 
-        // **Input Validation**: Check if the input is a valid number
-        if (sscanf_s(input, "%d", &choice) != 1) {
-            printf("\n");
-            printf("Invalid input. Please enter number between 1 and 6.\n");
-            continue;  // Restart the loop for another input
-        }
-
-        // Handle valid menu choices
         switch (choice) {
         case 1:
             getUserInput("Enter country name: ", country, sizeof(country));
@@ -180,38 +177,70 @@ int main() {
             // Prompt for the country name
             getUserInput("Enter country name: ", country, sizeof(country));
 
+            // Retrieve the BST associated with the given country
+            BST* tree = hashTable.getTree(country);
+
+            // Check if the BST for the country exists and has parcels
+            int count = 0, capacity = 10;
+            Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+            if (!parcels) {
+                printf("Memory allocation failed.\n");
+                return 1; // Exit the program if memory allocation fails
+            }
+
+            tree->inorder(parcels, count, capacity);
+
+            bool found = false;
+            for (int i = 0; i < count; i++) {
+                if (strcmp(parcels[i]->country, country) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                printf("\n");
+                printf("Invalid country name or no parcels found for country %s.\n", country);
+                free(parcels);
+                break;
+            }
+
             // Prompt for the weight to compare
             printf("Enter the weight to compare: ");
             fgets(input, sizeof(input), stdin);
             sscanf_s(input, "%d", &weight);
 
-            // Ask the user if they want parcels with higher or lower weights
-            printf("Enter 'H' for weight higher or 'L' for weight lower: ");
-            fgets(input, sizeof(input), stdin);
+            // Prompt the user for higher or lower weights
+            char conditionChar;
+            do {
+                printf("Enter 'H' for weight higher or 'L' for weight lower: ");
+                fgets(input, sizeof(input), stdin);
+                conditionChar = toupper(input[0]);
 
-            // Convert the first character of the input to uppercase
-            char conditionChar = toupper(input[0]);
+                if (conditionChar != 'H' && conditionChar != 'L') {
+                    printf("\n");
+                    printf("Invalid input. Please enter 'H' for higher or 'L' for lower.\n");
+                }
+            } while (conditionChar != 'H' && conditionChar != 'L');
 
             // Determine the condition based on user input
-            if (conditionChar == 'H') {
-                condition = true;  // Higher
-            }
-            else if (conditionChar == 'L') {
-                condition = false; // Lower
-            }
-            else {
-                printf("Invalid input. Please enter 'H' for higher or 'L' for lower.\n");
-                break;
-            }
+            bool condition = (conditionChar == 'H');
 
-            // Call the updated showParcelWeight function
+            // Call the showParcelWeight function
             showParcelWeight(hashTable, country, weight, condition);
 
+            free(parcels);
             break;
         }
+
         case 3:
             getUserInput("Enter country name: ", country, sizeof(country));
-            totalLoadAndValuation(hashTable, country);
+
+            // Check if the country has valid parcels
+            if (!checkTotalLoadAndValuation(hashTable, country)) {
+                printf("\n");
+                printf("Invalid country, please try again.\n");
+            }
             break;
         case 4:
             getUserInput("Enter country name: ", country, sizeof(country));
@@ -222,17 +251,19 @@ int main() {
             lightestAndHeaviest(hashTable, country);
             break;
         case 6:
+            printf("\n");
             printf("Exiting the application.\n");
             break;
         default:
-            // **Invalid Menu Choice Handling**: Handle choices outside the range of 1 to 6
-            printf("Error: Invalid choice. Please select a number between 1 and 6.\n");
+            printf("\n");
+            printf("Invalid choice, please enter a number between 1 and 6.\n");
             break;
         }
     } while (choice != 6);
 
     return 0;
 }
+
 
 /*
 * FUNCTION    : showParcelsList
@@ -247,29 +278,39 @@ void showParcelsList(HashTable& hashTable, const char* country) {
     if (tree) {
         int count = 0, capacity = 10;
         Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        if (!parcels) {
+            printf("\n");
+            printf("Memory allocation failed.\n");
+            return;
+        }
         tree->inorder(parcels, count, capacity); // Get all parcels in sorted order based on weight
 
         bool found = false;
+        printf("\n");
         printf("Parcels for country %s:\n", country);
 
         // Iterate over all parcels and display only those matching the specified country
         for (int i = 0; i < count; i++) {
             if (strcmp(parcels[i]->country, country) == 0) {
                 found = true;
+                printf("\n");
                 printf("Destination: %s, Weight: %d, Valuation: %.2f\n", parcels[i]->country, parcels[i]->weight, parcels[i]->valuation);
             }
         }
 
         if (!found) {
+            printf("\n");
             printf("No parcels found for country %s\n", country);
         }
 
         free(parcels);
     }
     else {
+        printf("\n");
         printf("No parcels found for country %s\n", country);
     }
 }
+
 /*
 * FUNCTION    : showParcelWeight
 * DESCRIPTION : This function displays parcels for a given country based on weight condition.
@@ -285,8 +326,13 @@ void showParcelWeight(HashTable& hashTable, const char* country, int weight, boo
     if (tree) {
         int count = 0, capacity = 10;
         Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        if (!parcels) {
+            printf("\n");
+            printf("Memory allocation failed.\n");
+            return;
+        }
         tree->inorder(parcels, count, capacity); // Retrieve all parcels in the BST
-
+        printf("\n");
         printf("Parcels for country %s with weight %s than %d:\n", country, higher ? "higher" : "lower", weight);
 
         bool found = false; // Flag to check if any parcel meets the criteria
@@ -303,56 +349,61 @@ void showParcelWeight(HashTable& hashTable, const char* country, int weight, boo
         }
 
         if (!found) {
+            printf("\n");
             printf("No parcels found for country %s with the specified weight condition.\n", country);
         }
 
         free(parcels);
     }
     else {
+        printf("\n");
         printf("No parcels found for country %s.\n", country);
     }
-} 
+}
+
 /*
-* FUNCTION    : totalLoadAndValuation
+* FUNCTION    : checkTotalLoadAndValuation
 * DESCRIPTION : This function displays the total load and valuation for parcels of a given country.
 * PARAMETERS  : HashTable& hashTable - The hash table.
 *               const char* country - The country name.
+* RETURNS     : bool - True if the country is valid and has parcels, False otherwise.
 */
-void totalLoadAndValuation(HashTable& hashTable, const char* country) {
+bool checkTotalLoadAndValuation(HashTable& hashTable, const char* country) {
     BST* tree = hashTable.getTree(country);
     if (tree) {
         int count = 0, capacity = 10;
         Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
-        tree->inorder(parcels, count, capacity);
-
-        if (count == 0) {
-            printf("Error: No parcels found for country %s.\n", country);
-            free(parcels);
-            return;
+        if (!parcels) {
+            printf("\n");
+            printf("Memory allocation failed.\n");
+            return false;
         }
+        tree->inorder(parcels, count, capacity);
 
         int totalWeight = 0;
         float totalValuation = 0;
+        bool found = false;
+
         for (int i = 0; i < count; i++) {
             if (strcmp(parcels[i]->country, country) == 0) {  // Check if the parcel's country matches the input country
                 totalWeight += parcels[i]->weight;
                 totalValuation += parcels[i]->valuation;
+                found = true;
             }
         }
 
-        if (totalWeight == 0 && totalValuation == 0) {
-            printf("Error: No parcels found for country %s.\n", country);
-        }
-        else {
-            printf("Total parcel load for country %s: %d\n", country, totalWeight);
-            printf("Total parcel valuation for country %s: %.2f\n", country, totalValuation);
-        }
-
         free(parcels);
+
+        if (found) {
+            printf("\n");
+            printf("Total parcel load for country %s: %d\n", country, totalWeight);
+            printf("\n");
+            printf("Total parcel valuation for country %s: %.2f\n", country, totalValuation);
+            return true;
+        }
     }
-    else {
-        printf("Error: No parcels found for country %s.\n", country);
-    }
+
+    return false; // Return false if no parcels found for the country
 }
 
 /*
@@ -366,10 +417,16 @@ void showCost(HashTable& hashTable, const char* country) {
     if (tree) {
         int count = 0, capacity = 10;
         Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        if (!parcels) {
+            printf("\n");
+            printf("Memory allocation failed.\n");
+            return;
+        }
         tree->inorder(parcels, count, capacity);
 
         if (count == 0) {
-            printf("Error: No parcels found for country %s\n", country);
+            printf("\n");
+            printf("No parcels found for country %s\n", country);
             free(parcels);
             return;
         }
@@ -384,13 +441,15 @@ void showCost(HashTable& hashTable, const char* country) {
                 mostExpensive = parcels[i];
             }
         }
-        // Display only weight and valuation, without the destination
-        printf("Cheapest parcel: Weight: %d, Valuation: %.2f\n", cheapest->weight, cheapest->valuation);
-        printf("Most expensive parcel: Weight: %d, Valuation: %.2f\n", mostExpensive->weight, mostExpensive->valuation);
+        printf("\n");
+        printf("Cheapest parcel for country %s: Destination: %s, Weight: %d, Valuation: %.2f\n", country, cheapest->country, cheapest->weight, cheapest->valuation);
+        printf("\n");
+        printf("Most expensive parcel for country %s: Destination: %s, Weight: %d, Valuation: %.2f\n", country, mostExpensive->country, mostExpensive->weight, mostExpensive->valuation);
 
         free(parcels);
     }
     else {
+        printf("\n");
         printf("No parcels found for country %s\n", country);
     }
 }
@@ -440,4 +499,26 @@ void lightestAndHeaviest(HashTable& hashTable, const char* country) {
         printf("\n");
         printf("No parcels found for country %s\n", country);
     }
+}
+
+/*
+* FUNCTION    : readFile
+* DESCRIPTION : This function reads parcels data from a file and inserts them into the hash table.
+* PARAMETERS  : HashTable& hashTable - The hash table.
+*               const char* filename - The file name.
+*/
+void readFile(HashTable& hashTable, const char* filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        printf("Failed to open file %s\n", filename);
+        return;
+    }
+    char country[MAX_COUNTRY_NAME_LENGTH];
+    int weight;
+    float valuation;
+    while (file >> country >> weight >> valuation) {
+        Parcel* parcel = new Parcel(country, weight, valuation);
+        hashTable.insert(parcel);
+    }
+    file.close();
 }
