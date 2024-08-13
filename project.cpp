@@ -312,3 +312,86 @@ void showParcelWeight(HashTable& hashTable, const char* country, int weight, boo
         printf("No parcels found for country %s.\n", country);
     }
 } 
+/*
+* FUNCTION    : totalLoadAndValuation
+* DESCRIPTION : This function displays the total load and valuation for parcels of a given country.
+* PARAMETERS  : HashTable& hashTable - The hash table.
+*               const char* country - The country name.
+*/
+void totalLoadAndValuation(HashTable& hashTable, const char* country) {
+    BST* tree = hashTable.getTree(country);
+    if (tree) {
+        int count = 0, capacity = 10;
+        Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        tree->inorder(parcels, count, capacity);
+
+        if (count == 0) {
+            printf("Error: No parcels found for country %s.\n", country);
+            free(parcels);
+            return;
+        }
+
+        int totalWeight = 0;
+        float totalValuation = 0;
+        for (int i = 0; i < count; i++) {
+            if (strcmp(parcels[i]->country, country) == 0) {  // Check if the parcel's country matches the input country
+                totalWeight += parcels[i]->weight;
+                totalValuation += parcels[i]->valuation;
+            }
+        }
+
+        if (totalWeight == 0 && totalValuation == 0) {
+            printf("Error: No parcels found for country %s.\n", country);
+        }
+        else {
+            printf("Total parcel load for country %s: %d\n", country, totalWeight);
+            printf("Total parcel valuation for country %s: %.2f\n", country, totalValuation);
+        }
+
+        free(parcels);
+    }
+    else {
+        printf("Error: No parcels found for country %s.\n", country);
+    }
+}
+
+/*
+* FUNCTION    : showCost
+* DESCRIPTION : This function displays the cheapest and most expensive parcels for a given country.
+* PARAMETERS  : HashTable& hashTable - The hash table.
+*               const char* country - The country name.
+*/
+void showCost(HashTable& hashTable, const char* country) {
+    BST* tree = hashTable.getTree(country);
+    if (tree) {
+        int count = 0, capacity = 10;
+        Parcel** parcels = (Parcel**)malloc(capacity * sizeof(Parcel*));
+        tree->inorder(parcels, count, capacity);
+
+        if (count == 0) {
+            printf("Error: No parcels found for country %s\n", country);
+            free(parcels);
+            return;
+        }
+
+        Parcel* cheapest = parcels[0];
+        Parcel* mostExpensive = parcels[0];
+        for (int i = 1; i < count; i++) {
+            if (parcels[i]->valuation < cheapest->valuation) {
+                cheapest = parcels[i];
+            }
+            if (parcels[i]->valuation > mostExpensive->valuation) {
+                mostExpensive = parcels[i];
+            }
+        }
+        // Display only weight and valuation, without the destination
+        printf("Cheapest parcel: Weight: %d, Valuation: %.2f\n", cheapest->weight, cheapest->valuation);
+        printf("Most expensive parcel: Weight: %d, Valuation: %.2f\n", mostExpensive->weight, mostExpensive->valuation);
+
+        free(parcels);
+    }
+    else {
+        printf("No parcels found for country %s\n", country);
+    }
+}
+
